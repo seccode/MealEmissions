@@ -2,6 +2,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+PACKAGINGS = [
+    "Plastic",
+    "Cardboard",
+    "Styrofoam",
+    "Paper",
+    "Glass",
+    "Metal"
+    ]
+
 def get_meal_kit_ingredients():
     """
     Get meal kit ingredients and food-specific
@@ -29,14 +38,16 @@ def get_food_and_packaging_emissions():
     Get emission values associated with
     specific foods and packaging
     """
-    return pd.read_excel("food_and_packaging_emissions.xlsx").drop_duplicates()
+    return pd.read_excel("food_and_packaging_emissions.xlsx", index_col=0)
 
 def get_food_loss_and_waste_rates():
     """
     Get food loss and waste rates
     """
-    return pd.read_excel("food_loss_and_waste_rates.xlsx", index_col=0).drop_duplicates()
+    return pd.read_excel("food_loss_and_waste_rates.xlsx", index_col=0)
 
+
+# Load data
 SALMON_MEAL_KIT_INGREDIENTS, CHEESEBURGER_MEAL_KIT_INGREDIENTS = \
     get_meal_kit_ingredients()
 
@@ -69,53 +80,78 @@ class MealKitService:
         # TODO, add parameter to Monte Carlo params
         R = 0.1
 
-        self.Q_CF = sum([q / R for q in Q_MF])
+        self.Q_CF = [q / (1 - R) for q in Q_MF]
+        
+        self.C_F = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in \
+            meal.meal_kit_ingredients.index]
 
-        self.C_F = None
-        self.Q_B = None
-        self.C_B = None
-        self.Q_TF = None
-        self.D_T = None
-        self.C_T = None
-        self.Y = None
-        self.C_I = None
-        self.N = None
+        self.Q_B = [sum(meal.meal_kit_ingredients[col + " (g)"]) for col in PACKAGINGS]
+
+        self.C_B = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in PACKAGINGS]
+
+        # Assumption: Q_TF == Q_MF for Meal Kit?
+        self.Q_TF = Q_MF
+
+        # TODO, add parameter to Monte Carlo params
+        self.D_T = 976.87 # km
+
+        # TODO, add parameter to Monte Carlo params
+        self.C_T = 0.00000028 # kg CO2 e/g-km
+        
+        # TODO, add parameter to Monte Carlo params
+        self.Y = 10 # MJ/package
+        
+        # TODO, add parameter to Monte Carlo params
+        self.C_I = 0.28
+
+        # TODO, add parameter to Monte Carlo params
+        self.N = 3
         return
     
-    def get_production_emissions(self, meal):
-        raise Exception("Unimplemented")
+    def get_production_emissions(self):
         assert self.Q_CF and self.C_F, "Parameters not defined yet"
 
-        return self.Q_CF * self.C_F
+        ret = sum([q * c for q, c in zip(self.Q_CF, self.C_F)])
+        print("Meal kit production emissions: {}".format(ret))
 
-    def get_packaging_emissions(self, meal):
+        return ret
+
+    def get_packaging_emissions(self):
         assert self.Q_B and self.C_B, "Parameters not defined yet"
-        raise Exception("Unimplemented")
 
-        return self.Q_B * self.C_B
+        ret = sum([q * c for q, c in zip(self.Q_B, self.C_B)])
+        print("Meal kit packaging emissions: {}".format(ret))
 
-    def get_processing_emissions(self, meal):
+        return ret
+
+    def get_processing_emissions(self):
+        """
+        Assumption: No emissions from meal kit processing
+        """
         return 0
 
-    def get_delivery_emissions(self, meal):
-        raise Exception("Unimplemented")
+    def get_delivery_emissions(self):
         assert self.Q_TF and self.D_T and self.C_T, "Parameters not defined yet"
 
-        return self.Q_TF * self.D_T * self.C_T
+        ret = sum([q * self.D_T * self.C_T for q in self.Q_TF])
+        print("Meal kit delivery emissions: {}".format(ret))
 
-    def get_last_mile_transportation_emissions(self, meal):
-        raise Exception("Unimplemented")
+        return ret
+
+    def get_last_mile_transportation_emissions(self):
         assert self.Y and self.C_I and self.N, "Parameters not defined yet"
 
-        return self.Y * self.C_I / self.N
+        ret = self.Y * self.C_I / self.N
+        print("Meal kit delivery emissions: {}".format(ret))
 
-    def get_total_emissions(self, meal):
-        return self.get_production_emissions(meal) + \
-            self.get_packaging_emissions(meal) + \
-            self.get_processing_emissions(meal) + \
-            self.get_delivery_emissions(meal) + \
-            self.get_last_mile_transportation_emissions(meal)
+        return ret
 
+    def get_total_emissions(self):
+        return self.get_production_emissions() + \
+            self.get_packaging_emissions() + \
+            self.get_processing_emissions() + \
+            self.get_delivery_emissions() + \
+            self.get_last_mile_transportation_emissions()
 
 
 class GroceryService:
@@ -124,63 +160,99 @@ class GroceryService:
         Q_MF = [e + u for e, u in zip(meal.meal_kit_ingredients["Food Eaten (g)"],
             meal.meal_kit_ingredients["Food Unused (g)"])]
 
-        R = [FOOD_LOSS_AND_WASTE_RATES[item]["Store Loss Rate (%)"] for item in \
+        R = [FOOD_LOSS_AND_WASTE_RATES.loc[item]["Store Loss Rate (%)"]/100 for item in \
             meal.meal_kit_ingredients.index]
+        
+        self.Q_CF = [q / (1 - r) for q, r in zip(Q_MF, R)]
 
-        self.Q_CF = sum([q / (1 - r) for q, r in zip(Q_MF, R)])
+        self.C_F = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in \
+            meal.meal_kit_ingredients.index]
+        
+        self.Q_B = [sum(meal.meal_kit_ingredients[col + " (g)"]) for col in PACKAGINGS]
 
-        self.C_F = None
-        self.Q_B = None
-        self.C_B = None
-        self.Q_TF = None
-        self.D_T = None
-        self.C_T = None
-        self.H_DF = None
-        self.H_WF = None
-        self.C_D = None
-        self.C_A = None
-        self.D_L = None
-        self.V = None
-        self.C_G = None
-        self.N = None
+        self.C_B = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in PACKAGINGS]
+
+        # Assumption: Q_TF == Q_CF for Grocery?
+        self.Q_TF = self.Q_CF
+
+        # TODO, add parameter to Monte Carlo params
+        self.D_T = 47.15 # km
+
+        # TODO, add parameter to Monte Carlo params
+        self.C_T = 0.00000028 # kg CO2 e/g-km
+
+        # TODO, add parameter to Monte Carlo params
+        self.H_DF = 48.5 # hours
+
+        # TODO, add parameter to Monte Carlo params
+        self.H_WF = 18.23 # hours
+
+        # TODO, add parameter to Monte Carlo params
+        self.C_D = 6.62 / 10**6
+
+        # TODO, add parameter to Monte Carlo params
+        self.C_A = 6.44 / 10**6
+
+        # TODO, add parameter to Monte Carlo params
+        self.D_L = 4.43 # miles
+
+        # TODO, add parameter to Monte Carlo params
+        self.V = 23.36 # mpg
+
+        # TODO, add parameter to Monte Carlo params
+        self.C_G = 0.28
+
+        # TODO, add parameter to Monte Carlo params
+        self.N = 5
+
         return
 
-    def get_production_emissions(self, meal):
-        raise Exception("Unimplemented")
+    def get_production_emissions(self):
         assert self.Q_CF and self.C_F, "Parameters not defined yet"
 
-        return self.Q_CF * self.C_F
+        ret = round(sum([q * c for q, c in zip(self.Q_CF, self.C_F)]),2)
+        print("Grocery production emissions: {}".format(ret))
 
-    def get_packaging_emissions(self, meal):
-        raise Exception("Unimplemented")
+        return ret
+
+    def get_packaging_emissions(self):
         assert self.Q_B and self.C_B, "Parameters not defined yet"
 
-        return self.Q_B * self.C_B
+        ret = sum([q * c for q, c in zip(self.Q_B, self.C_B)])
+        print("Grocery packaging emissions: {}".format(ret))
 
-    def get_transportation_emissions(self, meal):
-        raise Exception("Unimplemented")
+        return ret
+
+    def get_transportation_emissions(self):
         assert self.Q_TF and self.D_T and self.C_T, "Parameters not defined yet"
 
-        return self.Q_TF * self.D_T * self.C_T
+        ret = sum([q * self.D_T * self.C_T for q in self.Q_TF])
+        print("Grocery transportation emissions: {}".format(ret))
 
-    def get_retail_operation_emissions(self, meal):
-        raise Exception("Unimplemented")
+        return ret
+
+    def get_retail_operation_emissions(self):
         assert self.H_DF and self.H_WF and self.C_D and self.C_A, "Parameters not defined yet"
 
-        return self.Q_CF * self.H_DF * self.C_D + self.Q_CF * self.H_WF * self.C_A
+        ret = sum([q * self.H_DF * self.C_D + q * self.H_WF * self.C_A for q in self.Q_CF])
+        print("Grocery retail emissions: {}".format(ret))
 
-    def get_last_mile_transportation_emissions(self, meal):
-        raise Exception("Unimplemented")
+        return ret
+
+    def get_last_mile_transportation_emissions(self):
         assert self.D_L and self.V and self.C_G and self.N, "Parameters not defined yet"
 
-        return (self.D_L / self.V) * self.C_G / self.N
+        ret = (self.D_L / self.V) * self.C_G / self.N
+        print("Grocery last-mile emissions: {}".format(ret))
 
-    def get_total_emissions(self, meal):
-        return self.get_production_emissions(meal) + \
-            self.get_packaging_emissions(meal) + \
-            self.get_transportation_emissions(meal) + \
-            self.get_retail_operation_emissions(meal) + \
-            self.get_last_mile_transportation_emissions(meal)
+        return ret
+
+    def get_total_emissions(self):
+        return self.get_production_emissions() + \
+            self.get_packaging_emissions() + \
+            self.get_transportation_emissions() + \
+            self.get_retail_operation_emissions() + \
+            self.get_last_mile_transportation_emissions()
 
 
 def main():
