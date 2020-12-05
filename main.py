@@ -2,51 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-FOOD_LOSS_AND_WASTE_RATES = {
-    "Grain": {
-        "RETAIL": np.random.triangular(0, 0.12, 1),
-        "HOME": np.random.triangular(0, 0.19, 1)
-    },
-    "Fruit": {
-        "RETAIL": np.random.triangular(0, 0.09, 1),
-        "HOME": np.random.triangular(0, 0.19, 1)
-    },
-    "Vegetable": {
-        "RETAIL": np.random.triangular(0, 0.08, 1),
-        "HOME": np.random.triangular(0, 0.22, 1)
-    },
-    "Dairy": {
-        "RETAIL": np.random.triangular(0, 0.11, 1),
-        "HOME": np.random.triangular(0, 0.20, 1)
-    },
-    "Meat": {
-        "RETAIL": np.random.triangular(0, 0.05, 1),
-        "HOME": np.random.triangular(0, 0.22, 1)
-    },
-    "Poultry": {
-        "RETAIL": np.random.triangular(0, 0.04, 1),
-        "HOME": np.random.triangular(0, 0.18, 1)
-    },
-    "Fish": {
-        "RETAIL": np.random.triangular(0, 0.08, 1),
-        "HOME": np.random.triangular(0, 0.31, 1)
-    },
-    "Eggs": {
-        "RETAIL": np.random.triangular(0, 0.07, 1),
-        "HOME": np.random.triangular(0, 0.21, 1)
-    },
-    "Spice": {
-        "RETAIL": 0,
-        "HOME": 0
-    }
-}
-
 def get_meal_kit_ingredients():
     """
     Get meal kit ingredients and food-specific
     packaging masses
     """
-    df = pd.read_excel("meal_kit_ingredients.xlsx")
+    df = pd.read_excel("meal_kit_ingredients.xlsx", index_col=0).fillna(0)
     salmon_df = df.iloc[1:10]
     cheeseburger_df = df.iloc[11:]
 
@@ -57,7 +18,7 @@ def get_grocery_meal_ingredients():
     Get grocery mael ingredients and food-specific
     packaging masses
     """
-    df = pd.read_excel("grocery_meal_ingredients.xlsx")
+    df = pd.read_excel("grocery_meal_ingredients.xlsx", index_col=0).fillna(0)
     salmon_df = df.iloc[1:10]
     cheeseburger_df = df.iloc[11:]
 
@@ -68,13 +29,13 @@ def get_food_and_packaging_emissions():
     Get emission values associated with
     specific foods and packaging
     """
-    return pd.read_excel("food_and_packaging_emissions.xlsx")
+    return pd.read_excel("food_and_packaging_emissions.xlsx").drop_duplicates()
 
 def get_food_loss_and_waste_rates():
     """
     Get food loss and waste rates
     """
-    return pd.read_excel("food_loss_and_waste_rates.xlsx")
+    return pd.read_excel("food_loss_and_waste_rates.xlsx", index_col=0).drop_duplicates()
 
 SALMON_MEAL_KIT_INGREDIENTS, CHEESEBURGER_MEAL_KIT_INGREDIENTS = \
     get_meal_kit_ingredients()
@@ -87,80 +48,66 @@ FOOD_AND_PACKAGING_EMISSIONS = get_food_and_packaging_emissions()
 FOOD_LOSS_AND_WASTE_RATES = get_food_loss_and_waste_rates()
 
 
-
-def get_meal_kits_per_box():
-    """
-    Return the number of meal kits per box according
-    to a binomial distribution with probabilities:
-        3 (85%)
-        2 (15%)
-    """
-    return np.random.binomial(1, 0.85) + 2
-
-def get_food_retail_loss_and_home_waste_rate(food):
-    """
-    Get food retail loss and home waste rates
-    according to trinagular distribution
-    """
-    retail_loss = FOOD_LOSS_AND_WASTE_RATES[food["Category"]]["RETAIL"]
-    home_waste = FOOD_LOSS_AND_WASTE_RATES[food["Category"]]["HOME"]
-
-    return (retail_loss, home_waste)
-
-def meal_kit_processing_loss_rate():
-    """
-    Get meal kit processing loss rate according
-    to a triangular distribution with a mode of 10%
-    """
-    return np.random.triangular(0, 0.10, 1)
-
-def get_meals_purchased_at_grocery_store():
-    """
-    Get number of meals purchased at grocery store
-    according to a uniform distribution with a
-    range of 1-5
-    """
-    return np.random.randint(1, 6, 1)[0]
-
-def get_meals_per_grocery_bag():
-    """
-    Get number of meals per grocery store bag
-    according to a uniform distribution with
-    a range of 2-3
-    """
-    return np.random.randint(2, 4, 1)[0]
-
-
-
-class Meal:
-    def __init__(self, name):
-        self.name = name
-        return
-
-
-class MealKitService:
+class MonteCarloParameters:
     def __init__(self):
         return
 
+class Meal:
+    def __init__(self, name, meal_kit_ingredients, grocery_meal_ingredients):
+        self.name = name
+        self.meal_kit_ingredients = meal_kit_ingredients
+        self.grocery_meal_ingredients = grocery_meal_ingredients
+        return
+    
+
+class MealKitService:
+    def __init__(self, meal):
+        self.meal = meal
+        Q_MF = [e + u for e, u in zip(meal.meal_kit_ingredients["Food Eaten (g)"],
+            meal.meal_kit_ingredients["Food Unused (g)"])]
+
+        # TODO, add parameter to Monte Carlo params
+        R = 0.1
+
+        self.Q_CF = sum([q / R for q in Q_MF])
+
+        self.C_F = None
+        self.Q_B = None
+        self.C_B = None
+        self.Q_TF = None
+        self.D_T = None
+        self.C_T = None
+        self.Y = None
+        self.C_I = None
+        self.N = None
+        return
+    
     def get_production_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.Q_CF and self.C_F, "Parameters not defined yet"
+
+        return self.Q_CF * self.C_F
 
     def get_packaging_emissions(self, meal):
+        assert self.Q_B and self.C_B, "Parameters not defined yet"
         raise Exception("Unimplemented")
-        return
+
+        return self.Q_B * self.C_B
 
     def get_processing_emissions(self, meal):
-        raise Exception("Unimplemented")
-        return
+        return 0
 
     def get_delivery_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.Q_TF and self.D_T and self.C_T, "Parameters not defined yet"
+
+        return self.Q_TF * self.D_T * self.C_T
 
     def get_last_mile_transportation_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.Y and self.C_I and self.N, "Parameters not defined yet"
+
+        return self.Y * self.C_I / self.N
 
     def get_total_emissions(self, meal):
         return self.get_production_emissions(meal) + \
@@ -172,28 +119,61 @@ class MealKitService:
 
 
 class GroceryService:
-    def __init__(self):
+    def __init__(self, meal):
+        self.meal = meal
+        Q_MF = [e + u for e, u in zip(meal.meal_kit_ingredients["Food Eaten (g)"],
+            meal.meal_kit_ingredients["Food Unused (g)"])]
+
+        R = [FOOD_LOSS_AND_WASTE_RATES[item]["Store Loss Rate (%)"] for item in \
+            meal.meal_kit_ingredients.index]
+
+        self.Q_CF = sum([q / (1 - r) for q, r in zip(Q_MF, R)])
+
+        self.C_F = None
+        self.Q_B = None
+        self.C_B = None
+        self.Q_TF = None
+        self.D_T = None
+        self.C_T = None
+        self.H_DF = None
+        self.H_WF = None
+        self.C_D = None
+        self.C_A = None
+        self.D_L = None
+        self.V = None
+        self.C_G = None
+        self.N = None
         return
 
     def get_production_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.Q_CF and self.C_F, "Parameters not defined yet"
+
+        return self.Q_CF * self.C_F
 
     def get_packaging_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.Q_B and self.C_B, "Parameters not defined yet"
+
+        return self.Q_B * self.C_B
 
     def get_transportation_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.Q_TF and self.D_T and self.C_T, "Parameters not defined yet"
+
+        return self.Q_TF * self.D_T * self.C_T
 
     def get_retail_operation_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.H_DF and self.H_WF and self.C_D and self.C_A, "Parameters not defined yet"
+
+        return self.Q_CF * self.H_DF * self.C_D + self.Q_CF * self.H_WF * self.C_A
 
     def get_last_mile_transportation_emissions(self, meal):
         raise Exception("Unimplemented")
-        return
+        assert self.D_L and self.V and self.C_G and self.N, "Parameters not defined yet"
+
+        return (self.D_L / self.V) * self.C_G / self.N
 
     def get_total_emissions(self, meal):
         return self.get_production_emissions(meal) + \
@@ -205,15 +185,29 @@ class GroceryService:
 
 def main():
 
-    meal_1 = Meal("Salmon")
-    meal_2 = Meal("Cheeseburger")
+    meal_1 = Meal(
+        "Salmon",
+        SALMON_MEAL_KIT_INGREDIENTS,
+        SALMON_GROCERY_MEAL_INGREDIENTS
+        )
 
-    mks = MealKitService()
-    gs = GroceryService()
+    meal_2 = Meal(
+        "Cheeseburger",
+        CHEESEBURGER_MEAL_KIT_INGREDIENTS,
+        CHEESEBURGER_GROCERY_MEAL_INGREDIENTS
+        )
 
-    for meal in [meal_1, meal_2]:
-        print("Meal Kit Service Total Emissions for {} meal: {} kg CO2".format(
-            meal.name, mks.get_total_emissions(meal)))
+    mks_1 = MealKitService(meal_1)
+    mks_2 = MealKitService(meal_2)
+    gs_1 = GroceryService(meal_1)
+    gs_2 = GroceryService(meal_2)
+
+    for mk, gs in zip([mks_1, mks_2], [gs_1, gs_2]):
+        print("Meal Kit Service Total Emissions for {} meal: {} kg CO2\n".format(
+            mk.meal.name, mk.get_total_emissions()))
+        
+        print("Grocery Service Total Emissions for {} meal: {} kg CO2\n".format(
+            gs.meal.name, gs.get_total_emissions()))
 
     return
 
