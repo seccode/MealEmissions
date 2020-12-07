@@ -1,0 +1,20 @@
+Ingredient,Food Eaten (g),Food Unused (g),Plastic (g),Cardboard (g),Styrofoam (g),Paper (g),Glass (g),Metal (g),Category
+Salmon Meal,,,,,,,,,
+Salmon,274.03,0,58.8,0,0,0,0,0,Fish
+Garlic,6.7,27.55,0,0,0,0,0,0,Vegetable
+Carrots,170,48.98,4.46,0,0,0,0,0,Vegetable
+Potato,340.2,114.1,3.84,0,0,0,0,0,Vegetable
+Honey,19.9,0,0,3.9,0,0,0,0,Fruit
+Greek Yogurt,117.05,0,0,0,0,0,0,0,Dairy
+Aleppo Pepper,4.26,0,0,0,0,0,0,0,Spice
+Cumin,1.55,0,0.99,0,0,0,0,0,Spice
+Mint,5.22,0,6.51,0,0,0,0,0,Spice
+Cheeseburger Meal,,,,,,,,,
+Ground Beef,289.25,0,7.62,0,0,0,0,0,Meat
+Potato Buns,109.52,0,3.78,0,0,0,0,0,Vegetable
+Chioggia Beet,178.11,0,0,0,0,0,0,0,Vegetable
+Garlic,4.73,31.57,0,0,0,0,0,0,Vegetable
+Potato,305.63,0,0,0,0,0,0,0,Vegetable
+Sugar,8.87,0,0.96,0,0,0,0,0,Spice
+Red Wine Vinegar,14.63,0,7.35,0,0,0,0,0,Fruit
+Provolone Cheese,45.3,0,3.19,0,0,0,0,0,Dairy
