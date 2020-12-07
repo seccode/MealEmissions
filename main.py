@@ -57,27 +57,62 @@ FOOD_AND_PACKAGING_EMISSIONS = get_food_and_packaging_emissions()
 
 FOOD_LOSS_AND_WASTE_RATES = get_food_loss_and_waste_rates()
 
+def get_food_specific_retail_loss_rate(food_type):
+    return {
+        "Grain": np.random.triangular(9, 12, 15), # ASSUMPTION: bounded by +/- 3%
+        "Fruit": np.random.triangular(6, 9, 12), # ASSUMPTION: bounded by +/- 3%,
+        "Vegetable": np.random.triangular(5, 8, 11), # ASSUMPTION: bounded by +/- 3%,
+        "Dairy": np.random.triangular(8, 11, 14), # ASSUMPTION: bounded by +/- 3%,
+        "Meat": np.random.triangular(2, 5, 8), # ASSUMPTION: bounded by +/- 3%,
+        "Fish": np.random.triangular(5, 8, 11), # ASSUMPTION: bounded by +/- 3%,
+        "Eggs": np.random.triangular(4, 7, 10), # ASSUMPTION: bounded by +/- 3%
+        "Spice": 0 # ASSUMPTION: No loss rate
+    }[food_type]
+
+def get_food_specific_home_loss_rate(food_type):
+    return {
+        "Grain": np.random.triangular(16, 19, 22), # ASSUMPTION: bounded by +/- 3%
+        "Fruit": np.random.triangular(16, 19, 22), # ASSUMPTION: bounded by +/- 3%,
+        "Vegetable": np.random.triangular(19, 22, 25), # ASSUMPTION: bounded by +/- 3%,
+        "Dairy": np.random.triangular(17, 20, 23), # ASSUMPTION: bounded by +/- 3%,
+        "Meat": np.random.triangular(2, 5, 8), # ASSUMPTION: bounded by +/- 3%,
+        "Fish": np.random.triangular(28, 31, 34), # ASSUMPTION: bounded by +/- 3%,
+        "Eggs": np.random.triangular(19, 21, 24), # ASSUMPTION: bounded by +/- 3%
+        "Spice": 0 # ASSUMPTION: No loss rate
+    }[food_type]
+
+def get_food_specific_loss_rate(food_type, grocery=True):
+    if grocery:
+        return get_food_specific_retail_loss_rate(food_type)
+
+    return get_food_specific_home_loss_rate(food_type)
+
+def truncnorm(mean, sd):
+    ret = np.random.normal(mean, sd)
+    if ret < 0:
+        return 0
+    return ret
 
 def generate_parameters():
     """
     Generate random variable parameters for simulation
     """
     return {
-        "R": 0.1, # Home waste rate
-        "D_TM": 796.87, # Meal Kit transportation distance
-        "C_T": 0.28 / 10**6, # Fuel emissions
-        "Y": 10, # Energy consumed per package
-        "C_I": 0.28, # Fuel emissions
-        "N_M": 3, # Number of meals per kit
-        "D_TG": 47.15, # Grocery transportation distance
-        "H_DF": 48.5, # Grocery display time
-        "H_WF": 18.23, # Hours in walk-in cooler
-        "C_D": 6.62 / 10**6, # Display emissions
-        "C_A": 6.44 / 10**6, # Walk-in cooler emissions
-        "D_L": 4.43, # Grocery last-mile distance
-        "V": 23.36, # Vehicle fuel efficiency
-        "C_G": 0.28, # Fuel emissions
-        "N_G": 5 # Number of grocery meals per trip
+        "R": lambda food_type, is_grocery: get_food_specific_loss_rate(food_type, is_grocery), # Home waste rate
+        "D_TM": np.random.triangular(50, 796.87, 1221), # Meal Kit transportation distance
+        "C_T": np.random.triangular(0.18 / 10**6, 0.28 / 10**6, 0.38 / 10**6), # Fuel emissions, ASSUMPTION: bounded by +/- 0.10
+        "Y": np.random.triangular(5, 10, 15), # Energy consumed per package, ASSUMPTION: bounded by +/- 5 MJ/package
+        "C_I": np.random.triangular(0.18 / 10**6, 0.28 / 10**6, 0.38 / 10**6), # Fuel emissions, ASSUMPTION: bounded by +/- 0.10
+        "N_M": np.random.binomial(1, 0.85) + 2,
+        "D_TG": np.random.triangular(35, 47.15, 59), # Grocery transportation distance
+        "H_DF": np.random.triangular(10, 48.5, 60), # Grocery display time, ASSUMPTION: bounded by 10, 60
+        "H_WF": np.random.triangular(10, 18.23, 30), # Hours in walk-in cooler, ASSUMTPION: bounded by 10, 30
+        "C_D": np.random.triangular(3.31 / 10**6, 6.62 / 10**6, 9.93 / 10**6), # Display emissions, ASSUMPTION: bounded by +/- 50%
+        "C_A": np.random.triangular(3.22 / 10**6, 6.44 / 10**6, 9.66 / 10**6), # Walk-in cooler emissions, ASSUMPTION: bounded by +/- 50%
+        "D_L": truncnorm(4.43, 2), # Grocery last-mile distance, ASSUMPTION: standard deviation of 2
+        "V": truncnorm(23.36, 5), # Vehicle fuel efficiency, ASSUMPTION: standard deviation of 5
+        "C_G": np.random.triangular(0.18, 0.28, 0.38), # Fuel emissions, ASSUMPTION: bounded by +/- 0.10
+        "N_G": np.random.randint(1, 6) # Number of grocery meals per trip
     }
 
 class Meal:
@@ -86,7 +121,6 @@ class Meal:
         self.meal_kit_ingredients = meal_kit_ingredients
         self.grocery_meal_ingredients = grocery_meal_ingredients
         return
-    
 
 class MealKitService:
     def __init__(self, meal, params):
@@ -96,7 +130,8 @@ class MealKitService:
         Q_MF = [e + u for e, u in zip(meal.meal_kit_ingredients["Food Eaten (g)"],
             meal.meal_kit_ingredients["Food Unused (g)"])]
 
-        self.Q_CF = [q / (1 - self.params["R"]) for q in Q_MF]
+        r_vals = [self.params["R"](food_type, False) / 100 for food_type in meal.meal_kit_ingredients["Category"]]
+        self.Q_CF = [q / (1 - r) for q, r in zip(Q_MF, r_vals)]
         
         self.C_F = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in \
             meal.meal_kit_ingredients.index]
@@ -105,7 +140,7 @@ class MealKitService:
 
         self.C_B = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in PACKAGINGS]
 
-        # Assumption: Q_TF == Q_MF for Meal Kit?
+        # ASSUMPTION: Q_TF == Q_MF for Meal Kit?
         self.Q_TF = Q_MF
 
         return
@@ -126,7 +161,7 @@ class MealKitService:
 
     def get_processing_emissions(self):
         """
-        Assumption: No emissions from meal kit processing
+        ASSUMPTION: No emissions from meal kit processing
         """
         return 0
 
@@ -181,7 +216,7 @@ class GroceryService:
 
         self.C_B = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in PACKAGINGS]
 
-        # Assumption: Q_TF == Q_CF for Grocery?
+        # ASSUMPTION: Q_TF == Q_CF for Grocery?
         self.Q_TF = self.Q_CF
 
         return
@@ -189,6 +224,7 @@ class GroceryService:
     def get_production_emissions(self):
 
         ret = round(sum([q * c for q, c in zip(self.Q_CF, self.C_F)]),2)
+
         print("Grocery production emissions: {}".format(ret))
 
         return ret
@@ -238,7 +274,7 @@ class GroceryService:
             self.get_last_mile_transportation_emissions()
 
 
-def main():
+def run():
 
     # Create meals
     meal_1 = Meal(
@@ -273,5 +309,5 @@ def main():
     return
 
 if __name__ == "__main__":
-    main()
+    run()
 
