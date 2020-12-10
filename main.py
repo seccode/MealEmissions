@@ -132,7 +132,7 @@ class MealKitService:
 
         r_vals = [self.params["R"](food_type, False) / 100 for food_type in meal.meal_kit_ingredients["Category"]]
         self.Q_CF = [q / (1 - r) for q, r in zip(Q_MF, r_vals)]
-        
+
         self.C_F = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in \
             meal.meal_kit_ingredients.index]
 
@@ -144,48 +144,57 @@ class MealKitService:
         self.Q_TF = Q_MF
 
         return
-    
-    def get_production_emissions(self):
+
+    def get_production_emissions(self, _print=True):
 
         ret = sum([q * c for q, c in zip(self.Q_CF, self.C_F)])
-        print("Meal kit production emissions: {}".format(ret))
+        if _print:
+            print("Meal kit production emissions: {}".format(ret))
 
         return ret
 
-    def get_packaging_emissions(self):
+    def get_packaging_emissions(self, _print=True):
 
-        ret = sum([q * c for q, c in zip(self.Q_B, self.C_B)])
-        print("Meal kit packaging emissions: {}".format(ret))
+        ret = sum([q * c / self.params["N_M"] for q, c in zip(self.Q_B, self.C_B)])
+        if _print:
+            print("Meal kit packaging emissions: {}".format(ret))
 
         return ret
 
-    def get_processing_emissions(self):
+    def get_processing_emissions(self, _print=True):
         """
         ASSUMPTION: No emissions from meal kit processing
         """
-        return 0
 
-    def get_delivery_emissions(self):
-
-        ret = sum([q * self.params["D_TM"] * self.params["C_T"] for q in self.Q_TF])
-        print("Meal kit delivery emissions: {}".format(ret))
+        ret = sum([q * self.params["D_TM"] * self.params["C_T"] for q in self.Q_CF])
+        if _print:
+            print("Meal kit processing emissions: {}".format(ret))
 
         return ret
 
-    def get_last_mile_transportation_emissions(self):
+    def get_delivery_emissions(self, _print=True):
+
+        ret = sum([q * self.params["D_TM"] * self.params["C_T"] for q in self.Q_TF])
+        if _print:
+            print("Meal kit delivery emissions: {}".format(ret))
+
+        return ret
+
+    def get_last_mile_transportation_emissions(self, _print=True):
 
         ret = self.params["Y"] * self.params["C_I"] / self.params["N_M"]
-        print("Meal kit last mile emissions: {}".format(ret))
+        if _print:
+            print("Meal kit last mile emissions: {}".format(ret))
 
         return ret
 
     def get_individual_emissions(self):
         return (
-            self.get_production_emissions(),
-            self.get_packaging_emissions(),
-            self.get_processing_emissions(),
-            self.get_delivery_emissions(),
-            self.get_last_mile_transportation_emissions()
+            self.get_production_emissions(_print=False),
+            self.get_packaging_emissions(_print=False),
+            self.get_processing_emissions(_print=False),
+            self.get_delivery_emissions(_print=False),
+            self.get_last_mile_transportation_emissions(_print=False)
         )
 
     def get_total_emissions(self):
@@ -206,12 +215,12 @@ class GroceryService:
 
         R = [FOOD_LOSS_AND_WASTE_RATES.loc[item]["Store Loss Rate (%)"]/100 for item in \
             meal.meal_kit_ingredients.index]
-        
+
         self.Q_CF = [q / (1 - r) for q, r in zip(Q_MF, R)]
 
         self.C_F = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in \
             meal.meal_kit_ingredients.index]
-        
+
         self.Q_B = [sum(meal.meal_kit_ingredients[col + " (g)"]) for col in PACKAGINGS]
 
         self.C_B = [FOOD_AND_PACKAGING_EMISSIONS.loc[item]["kg CO2-eq/g "] for item in PACKAGINGS]
@@ -221,49 +230,53 @@ class GroceryService:
 
         return
 
-    def get_production_emissions(self):
+    def get_production_emissions(self, _print=True):
 
         ret = round(sum([q * c for q, c in zip(self.Q_CF, self.C_F)]),2)
-
-        print("Grocery production emissions: {}".format(ret))
+        if _print:
+            print("Grocery production emissions: {}".format(ret))
 
         return ret
 
-    def get_packaging_emissions(self):
+    def get_packaging_emissions(self, _print=True):
 
         ret = sum([q * c for q, c in zip(self.Q_B, self.C_B)])
-        print("Grocery packaging emissions: {}".format(ret))
+        if _print:
+            print("Grocery packaging emissions: {}".format(ret))
 
         return ret
 
-    def get_transportation_emissions(self):
+    def get_transportation_emissions(self, _print=True):
 
         ret = sum([q * self.params["D_TG"] * self.params["C_T"] for q in self.Q_TF])
-        print("Grocery transportation emissions: {}".format(ret))
+        if _print:
+            print("Grocery transportation emissions: {}".format(ret))
 
         return ret
 
-    def get_retail_operation_emissions(self):
+    def get_retail_operation_emissions(self, _print=True):
 
         ret = sum([q * self.params["H_DF"] * self.params["C_D"] + q * self.params["H_WF"] * self.params["C_A"] for q in self.Q_CF])
-        print("Grocery retail emissions: {}".format(ret))
+        if _print:
+            print("Grocery retail emissions: {}".format(ret))
 
         return ret
 
-    def get_last_mile_transportation_emissions(self):
-
+    def get_last_mile_transportation_emissions(self, _print=True):
+ 
         ret = (self.params["D_L"] / self.params["V"]) * self.params["C_G"] / self.params["N_G"]
-        print("Grocery last-mile emissions: {}".format(ret))
+        if _print:
+            print("Grocery last-mile emissions: {}".format(ret))
 
         return ret
 
     def get_individual_emissions(self):
         return (
-            self.get_production_emissions(),
-            self.get_packaging_emissions(),
-            self.get_transportation_emissions(),
-            self.get_retail_operation_emissions(),
-            self.get_last_mile_transportation_emissions()
+            self.get_production_emissions(_print=False),
+            self.get_packaging_emissions(_print=False),
+            self.get_transportation_emissions(_print=False),
+            self.get_retail_operation_emissions(_print=False),
+            self.get_last_mile_transportation_emissions(_print=False)
         )
 
     def get_total_emissions(self):
@@ -273,6 +286,79 @@ class GroceryService:
             self.get_retail_operation_emissions() + \
             self.get_last_mile_transportation_emissions()
 
+
+def plot_bars(data):
+    data = np.array(data).T
+
+    mk_names = [
+        "Production",
+        "Packaging",
+        "Processing",
+        "Delivery",
+        "Last Mile"
+    ]
+
+    gs_names = [
+        "Production",
+        "Packaging",
+        "Transportation",
+        "Retail",
+        "Last Mile"
+    ]
+
+    mk_colors = [
+        "blue",
+        "red",
+        "orange",
+        "yellow",
+        "green"
+    ]
+
+    gs_colors = [
+        "blue",
+        "red",
+        "purple",
+        "pink",
+        "green"
+    ]
+
+    bars = []
+    inds = np.arange(4)
+
+    def get_bottoms(i):
+        bottoms = [0, 0, 0, 0]
+        for j in range(i):
+            for k in range(4):
+                bottoms[k] += data[j][k]
+
+        return bottoms
+
+    for i, row in enumerate(data):
+        bar = plt.bar(inds, row, 0.5, bottom=get_bottoms(i))
+        bar[0].set_color(mk_colors[i])
+        bar[1].set_color(gs_colors[i])
+        bar[2].set_color(mk_colors[i])
+        bar[3].set_color(gs_colors[i])
+
+        bars.append(bar)
+
+
+    plt.ylabel("Emissions kg CO2-eq")
+    plt.xticks(inds, ["Salmon, Meal Kit", "Salmon, Grocery",
+                      "Cheeseburger, Meal Kit", "Cheeseburger, Grocery"], rotation=15)
+
+    plt.tight_layout()
+    plt.ylim(-1, 10)
+    plt.xlim(-0.5, 3.5)
+    plt.plot([-1, 4], [0, 0], 'k', alpha=0.5)
+
+    plt.legend(
+        (bars[0][0], bars[1][0], bars[2][0], bars[3][0], bars[4][0], bars[2][1], bars[3][1]),
+        ("Production", "Packaging", "Processing", "Delivery", "Last-mile", "Transportation", "Retail")
+        )
+
+    plt.show()
+    return
 
 def run():
 
@@ -288,7 +374,7 @@ def run():
         CHEESEBURGER_MEAL_KIT_INGREDIENTS,
         CHEESEBURGER_GROCERY_MEAL_INGREDIENTS
         )
-    
+
     # Get random variable values
     params = generate_parameters()
 
@@ -298,14 +384,22 @@ def run():
     gs_1 = GroceryService(meal_1, params)
     gs_2 = GroceryService(meal_2, params)
 
+    # Individual emission contributions
+    data = []
+
     # Print total emissions for each meal service
     for mk, gs in zip([mks_1, mks_2], [gs_1, gs_2]):
         print("Meal Kit Service Total Emissions for {} meal: {} kg CO2\n".format(
             mk.meal.name, mk.get_total_emissions()))
-        
+
         print("Grocery Service Total Emissions for {} meal: {} kg CO2\n".format(
             gs.meal.name, gs.get_total_emissions()))
 
+
+        data.append(mk.get_individual_emissions())
+        data.append(gs.get_individual_emissions())
+
+    plot_bars(data)
     return
 
 if __name__ == "__main__":
